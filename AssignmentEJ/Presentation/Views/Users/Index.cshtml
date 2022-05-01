@@ -1,0 +1,133 @@
+﻿@inject Microsoft.Extensions.Configuration.IConfiguration config;
+@using Google.Cloud.SecretManager.V1
+@using Newtonsoft.Json
+@model Presentation.Models.User
+
+@{
+    ViewData["Title"] = "Index";
+}
+
+<h1>Index</h1>
+
+<form method="post" action="/Users/Register">
+
+    <div>
+        <h4>User</h4>
+        <hr />
+        <dl class="row">
+            <dt class="col-sm-2">
+                @Html.DisplayNameFor(model => model.Email)
+            </dt>
+            <dd class="col-sm-10">
+                @Html.DisplayFor(model => model.Email)
+            </dd>
+
+            <dt class="col-sm-2">
+                First Name:
+            </dt>
+
+            <dd class="col-sm-10">
+
+                <input type="text" value="@Model.FirstName" name="FirstName" />
+            </dd>
+
+            <dt class="col-sm-2">
+                Available Credits:
+            </dt>
+            <dd class="col-sm-10">
+                @Html.DisplayFor(model => model.Credits)
+                <input type="text" value="@Model.Credits" name="Credits" class="display-none"/>
+            </dd>
+
+            <!--<dt class = "col-sm-2">
+                @*Html.DisplayNameFor(model => model.MobileNo)*@
+            </dt>
+            <dd class = "col-sm-10">
+                @*Html.DisplayFor(model => model.MobileNo)*@
+            </dd>
+            <dt class = "col-sm-2">
+                @*Html.DisplayNameFor(model => model.FullName)*@
+            </dt>
+            <dd class = "col-sm-10">
+                @*Html.DisplayFor(model => model.FullName)*@
+            </dd>-->
+
+            <dt class="col-sm-2">
+                Add Credit:
+            </dt>
+
+
+
+            @{
+                string projectId = config["project"];
+
+                // Create the client.
+                SecretManagerServiceClient client = SecretManagerServiceClient.Create();
+
+                // Build the resource name.
+                SecretVersionName secretVersionName = new SecretVersionName(projectId, "MyKeys", "1");
+
+                // Call the API.
+                AccessSecretVersionResponse result = client.AccessSecretVersion(secretVersionName);
+
+                // Convert the payload to a string. Payloads are bytes by default.
+                String payload = result.Payload.Data.ToStringUtf8();
+
+                dynamic myObj = JsonConvert.DeserializeObject(payload);
+                string redis = Convert.ToString(myObj["redis"]);
+
+
+                var connectionString = redis;
+
+                StackExchange.Redis.ConnectionMultiplexer cm = StackExchange.Redis.ConnectionMultiplexer.Connect(connectionString);
+                var db = cm.GetDatabase();
+
+                var myCreditItems = db.StringGet("credititems");
+
+                List<CreditItem> myList = new List<CreditItem>();
+                if (myCreditItems.IsNullOrEmpty)
+                {
+                    myList = new List<CreditItem>();
+                }
+                else
+                {
+                    myList = Newtonsoft.Json.JsonConvert.DeserializeObject<List<CreditItem>>(myCreditItems);
+                }
+
+            }
+
+            <dd class="col-sm-10">
+                <select name="creditsDD">
+                    <option value="0">None</option>
+                    @foreach (var credit in myList)
+                    {
+
+                        <option value="@credit.Credit">@credit.Text</option>
+                    }
+
+                </select>
+            </dd>
+
+
+
+
+
+        </dl>
+    </div>
+
+    <input type="submit" value="Update Details" />
+
+</form>
+
+
+
+<div>
+    @Html.ActionLink("Edit", "Edit", new { /* id = Model.PrimaryKey */ }) |
+    <a asp-action="Index">Back to List</a>
+</div>
+
+<style>
+    .display-none {
+        display: none;
+    }
+</style>
